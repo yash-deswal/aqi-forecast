@@ -17,7 +17,7 @@ app = Flask(__name__)
 # Load the pre-trained model
 # joblib is used because sklearn models are typically saved with it.
 # -------------------------------------------------------------------
-MODEL_PATH = os.path.join("model", "aqi_model.pkl")
+MODEL_PATH = os.path.join("model", "aqi_model_small.pkl")
 model = joblib.load(MODEL_PATH)
 
 # -------------------------------------------------------------------
