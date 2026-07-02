@@ -12,17 +12,14 @@
 </head>
 <body>
 
-  <!-- Animated background blobs -->
   <div class="bg-blob blob-1"></div>
   <div class="bg-blob blob-2"></div>
   <div class="bg-blob blob-3"></div>
 
   <div class="page-wrapper">
 
-    <!-- Header -->
     <header class="header">
       <div class="header-icon">
-        <!-- Inline SVG: stylised air/wave icon, always renders correctly -->
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="56" height="56" fill="none" aria-hidden="true">
           <circle cx="32" cy="32" r="32" fill="url(#logo-bg)"/>
           <path d="M14 26 Q22 20 30 26 Q38 32 46 26" stroke="url(#logo-stroke)" stroke-width="3.2" stroke-linecap="round" fill="none"/>
@@ -48,12 +45,10 @@
       <p class="header-sub">AI-Powered Air Quality Index Prediction for Indian Cities</p>
     </header>
 
-    <!-- Main card -->
     <main class="card" role="main">
 
       <form id="aqi-form" novalidate>
 
-        <!-- City -->
         <div class="field-group">
           <label class="field-label" for="city">City</label>
           <div class="select-wrapper">
@@ -89,7 +84,6 @@
           </div>
         </div>
 
-        <!-- Date row -->
         <div class="field-row">
           <div class="field-group">
             <label class="field-label" for="day">Day</label>
@@ -108,8 +102,6 @@
           </div>
         </div>
 
-
-        <!-- Lag features -->
         <div class="section-label">Historical AQI (Lag Features)</div>
         <div class="field-row">
           <div class="field-group">
@@ -129,7 +121,6 @@
           </div>
         </div>
 
-        <!-- Submit -->
         <button type="submit" id="predict-btn" class="predict-btn">
           <span class="btn-text">Predict AQI</span>
           <span class="btn-spinner" aria-hidden="true"></span>
@@ -137,7 +128,6 @@
 
       </form>
 
-      <!-- Result section -->
       <section id="result-section" class="result-section" aria-live="polite" hidden>
         <div class="result-divider"></div>
         <div class="result-content">
@@ -150,12 +140,10 @@
         </div>
       </section>
 
-      <!-- Error section -->
       <div id="error-box" class="error-box" hidden role="alert"></div>
 
     </main>
 
-    <!-- Footer -->
     <footer class="footer">
       <p>Built with Flask · scikit-learn · ❤️ — AQI scale as per CPCB India</p>
     </footer>

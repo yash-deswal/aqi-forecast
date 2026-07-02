@@ -1,34 +1,38 @@
-"""
-AQI Prediction Flask App
-========================
-This app loads a pre-trained machine learning model and exposes a /predict
-endpoint. The model was trained with one-hot encoded city columns, so we
-manually construct that encoding on every incoming request.
-"""
-
-from flask import Flask, request, jsonify, render_template
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.exceptions import RequestValidationError
+from pydantic import BaseModel
 import joblib
 import pandas as pd
 import os
 
-app = Flask(__name__)
+app = FastAPI()
 
-# -------------------------------------------------------------------
-# Load the pre-trained model
-# joblib is used because sklearn models are typically saved with it.
-# -------------------------------------------------------------------
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    err = exc.errors()[0]
+    field = ".".join(str(loc) for loc in err["loc"][1:]) # skip 'body'
+    return JSONResponse(
+        status_code=400,
+        content={"error": f"Invalid or missing value for '{field}': {err['msg']}"}
+    )
+
+class PredictRequest(BaseModel):
+    city: str
+    day: int
+    month: int
+    year: int
+    day_of_week: int
+    AQI_lag1: float
+    AQI_lag2: float
+    AQI_lag3: float
+
 MODEL_PATH = os.path.join("model", "aqi_model_small.pkl")
 model = joblib.load(MODEL_PATH)
 
-# -------------------------------------------------------------------
-# MODEL_COLUMNS — the EXACT list of feature columns the model expects,
-# in the EXACT order they were present during training.
-#
-# The first 7 are numeric features.
-# Everything starting with "City_" is a one-hot encoded binary column.
-# Only ONE of those City_ columns will be set to 1 per prediction;
-# all others stay 0.
-# -------------------------------------------------------------------
 MODEL_COLUMNS = [
     'day', 'month', 'year', 'day_of_week',
     'AQI_lag1', 'AQI_lag2', 'AQI_lag3',
@@ -114,65 +118,41 @@ MODEL_COLUMNS = [
     'City_Yamunanagar', 'City_vellore'
 ]
 
-
-@app.route("/")
+@app.get("/")
 def index():
     """Serve the main HTML page."""
-    return render_template("index.html")
+    return FileResponse("templates/index.html")
 
-
-@app.route("/predict", methods=["POST"])
-def predict():
-    """
-    POST /predict
-    Accepts JSON with city + date/lag features, returns predicted AQI.
-
-    One-hot encoding logic:
-    - All City_* columns are initialised to 0.
-    - We build the column name as  "City_" + city_name  (e.g. "City_Delhi").
-    - If that column exists in MODEL_COLUMNS, we set it to 1.
-    - This mirrors exactly what pd.get_dummies() produced during training.
-    """
-    data = request.get_json()
-
-    if not data:
-        return jsonify({"error": "No JSON body received"}), 400
-
-    # --- Step 1: Create a dict with every model column initialised to 0 ---
+@app.post("/predict")
+def predict(req: PredictRequest):
     input_dict = {col: 0 for col in MODEL_COLUMNS}
 
-    # --- Step 2: Fill in the numeric features from the request ---
-    numeric_fields = ['day', 'month', 'year', 'day_of_week',
-                      'AQI_lag1', 'AQI_lag2', 'AQI_lag3']
-    for field in numeric_fields:
-        if field not in data:
-            return jsonify({"error": f"Missing field: {field}"}), 400
-        input_dict[field] = data[field]
+    input_dict['day'] = req.day
+    input_dict['month'] = req.month
+    input_dict['year'] = req.year
+    input_dict['day_of_week'] = req.day_of_week
+    input_dict['AQI_lag1'] = req.AQI_lag1
+    input_dict['AQI_lag2'] = req.AQI_lag2
+    input_dict['AQI_lag3'] = req.AQI_lag3
 
-    # --- Step 3: One-hot encode the city ---
-    # The training dataset used pd.get_dummies() which created columns like
-    # "City_Delhi", "City_Mumbai", etc.  We replicate that here manually.
-    city = data.get("city", "").strip()
-    city_col = f"City_{city}"   # e.g. "City_Delhi"
+    city = req.city.strip()
+    city_col = f"City_{city}"
 
     if city_col not in MODEL_COLUMNS:
-        return jsonify({
-            "error": f"City '{city}' not recognized. "
-                     f"Expected column '{city_col}' not found in model."
-        }), 400
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"City '{city}' not recognized. Expected column '{city_col}' not found in model."}
+        )
 
-    input_dict[city_col] = 1   # set the matching city column to 1
+    input_dict[city_col] = 1
 
-    # --- Step 4: Build DataFrame in EXACT column order ---
-    # Column order MUST match training order; we enforce this explicitly.
     input_df = pd.DataFrame([input_dict], columns=MODEL_COLUMNS)
 
-    # --- Step 5: Predict and return ---
     prediction = model.predict(input_df)[0]
     aqi_value = round(float(prediction), 2)
 
-    return jsonify({"aqi": aqi_value})
-
+    return {"aqi": aqi_value}
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=10000)
